@@ -10,9 +10,8 @@ class Solution {
                 local=local.substring(0,i);
             }
             local=local.replace(".","");
-            String c=local+"@"+domain;
-            s.add(c);
-        }
+            s.add(local+"@"+domain);
+        } 
         return s.size();
     }
 }
