@@ -28,15 +28,13 @@ class Solution {
             
             // Check each block of length k
             for (int i = 0; i < n; i += k) {
-                // Extract block and its corresponding sorted target segment
-                int[] block = new int[k];
-                int[] target = new int[k];
+                // If the block already matches the sorted segment directly, it's valid instantly
+                if (isDirectMatch(nums, sortedNums, i, k)) {
+                    continue;
+                }
                 
-                System.arraycopy(nums, i, block, 0, k);
-                System.arraycopy(sortedNums, i, target, 0, k);
-                
-                // Check if 'target' is a cyclic rotation of 'block'
-                if (!isCyclicRotation(block, target)) {
+                // Otherwise, check if it's a valid cyclic shift
+                if (!isCyclicMatch(nums, sortedNums, i, k)) {
                     isSortable = false;
                     break;
                 }
@@ -50,25 +48,33 @@ class Solution {
         return totalSum;
     }
     
-    private boolean isCyclicRotation(int[] block, int[] target) {
-        int k = block.length;
-        // Create double block for cyclic substring check
-        int[] doubleBlock = new int[2 * k];
-        System.arraycopy(block, 0, doubleBlock, 0, k);
-        System.arraycopy(block, 0, doubleBlock, k, k);
-        
-        // Search for 'target' subarray inside 'doubleBlock'
-        for (int i = 0; i < k; i++) {
-            boolean match = true;
-            for (int j = 0; j < k; j++) {
-                if (doubleBlock[i + j] != target[j]) {
-                    match = false;
-                    break;
-                }
+    private boolean isDirectMatch(int[] nums, int[] sortedNums, int start, int k) {
+        for (int j = 0; j < k; j++) {
+            if (nums[start + j] != sortedNums[start + j]) {
+                return false;
             }
-            if (match) return true;
         }
+        return true;
+    }
+    
+    private boolean isCyclicMatch(int[] nums, int[] sortedNums, int start, int k) {
+        // Quick frequency check using a sliding window or hash-like validation
+        // Find the shift offset if the first element matches anywhere in the target block
+        int firstVal = nums[start];
         
+        for (int offset = 0; offset < k; offset++) {
+            if (sortedNums[start + offset] == firstVal) {
+                // Verify if this rotation matches
+                boolean match = true;
+                for (int j = 0; j < k; j++) {
+                    if (nums[start + j] != sortedNums[start + ((offset + j) % k)]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) return true;
+            }
+        }
         return false;
     }
 }
