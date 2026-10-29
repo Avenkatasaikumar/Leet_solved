@@ -1,151 +1,86 @@
 import java.util.*;
 
 class Solution {
-    private int n;
-    private List<List<Integer>> adj;
-    private char[] chars;
-    
+    int n;
+    int[] bit;
 
-    private int timer;
-    private int[] inTime, outTime, nodeAtTime;
-    private int[] depth;
-    private int[][] up; 
-    private int LOG;
-    
-   
-    private int[] bit;
-
-    private void dfs(int u, int p, int d) {
-        depth[u] = d;
-        up[u][0] = p;
-        for (int i = 1; i <= LOG; i++) {
-            up[u][i] = up[up[u][i - 1]][i - 1];
-        }
-        
-        inTime[u] = ++timer;
-        nodeAtTime[timer] = u;
-        
-        for (int v : adj.get(u)) {
-            if (v != p) {
-                dfs(v, u, d + 1);
-            }
-        }
-        outTime[u] = timer;
-    }
-
-    private void updateBIT(int idx, int val) {
-        for (; idx <= n; idx += idx & -idx) {
-            bit[idx] ^= val;
-        }
-    }
-
-    private int queryBIT(int idx) {
-        int res = 0;
-        for (; idx > 0; idx -= idx & -idx) {
-            res ^= bit[idx];
-        }
-        return res;
-    }
-
-    private void rangeUpdate(int l, int r, int val) {
-        updateBIT(l, val);
-        updateBIT(r + 1, val);
-    }
-
-    private int getMask(int u) {
-        return queryBIT(inTime[u]);
-    }
-
-    private int getLCA(int u, int v) {
-        if (depth[u] < depth[v]) {
-            int temp = u; u = v; v = temp;
-        }
-        for (int i = LOG; i >= 0; i--) {
-            if (depth[u] - (1 << i) >= depth[v]) {
-                u = up[u][i];
-            }
-        }
-        if (u == v) return u;
-        for (int i = LOG; i >= 0; i--) {
-            if (up[u][i] != up[v][i]) {
-                u = up[u][i];
-                v = up[v][i];
-            }
-        }
-        return up[u][0];
-    }
+    void upd(int i, int v) { for (i++; i <= n + 1; i += i & -i) bit[i] ^= v; }
+    int qry(int i) { int r = 0; for (i++; i > 0; i -= i & -i) r ^= bit[i]; return r; }
+    void rangeXor(int l, int r, int v) { upd(l, v); upd(r + 1, v); }
 
     public List<Boolean> palindromePath(int n, int[][] edges, String s, String[] queries) {
         this.n = n;
-        this.chars = s.toCharArray();
-        this.adj = new ArrayList<>();
-        for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
-        for (int[] edge : edges) {
-            adj.get(edge[0]).add(edge[1]);
-            adj.get(edge[1]).add(edge[0]);
-        }
+        bit = new int[n + 3];
 
-        LOG=0;
-        while((1<<LOG)<=n) LOG++;
+        List<Integer>[] g = new List[n];
+        for (int i = 0; i < n; i++) g[i] = new ArrayList<>();
+        for (int[] e : edges) { g[e[0]].add(e[1]); g[e[1]].add(e[0]); }
 
-        inTime=new int[n+1];
-        outTime=new int[n+1];
-        nodeAtTime=new int[n+1];
-        depth=new int[n];
-        up=new int[n][LOG+1];
-        bit=new int[n+2];
-        timer=0;
+        int LOG = 1;
+        while ((1 << LOG) < n) LOG++;
+        int[][] up = new int[LOG + 1][n];
+        int[] depth = new int[n], tin = new int[n], tout = new int[n], idx = new int[n];
 
-        dfs(0,0,0);
-
-        int[] pref=new int[n];
-        calculatePrefixXor(0,0,0,pref);
-        for(int i=0;i<n;i++){
-            rangeUpdate(inTime[i],inTime[i],pref[i]);
-        }
-
-        List<Boolean> result=new ArrayList<>();
-
-        for(String qStr:queries){
-            String[] parts=qStr.split(" ");
-            if(parts[0].equals("update")){
-                int u=Integer.parseInt(parts[1]);
-                char newChar=parts[2].charAt(0);
-                char oldChar=chars[u];
-                if(oldChar!=newChar){
-                    chars[u]=newChar;
-                    int diff=(1<<(oldChar-'a')) ^ (1<<(newChar-'a'));
-                    rangeUpdate(inTime[u],outTime[u],diff);
-                }
-            } else{
-                int u=Integer.parseInt(parts[1]);
-                int v=Integer.parseInt(parts[2]);
-                int lca=getLCA(u,v);
-
-                int maskU=getMask(u);
-                int maskV=getMask(v);
-                int maskParentLca=(lca==0)?0:getMask(up[lca][0]);
-
-                int pathMask=maskU^maskV^maskParentLca^(1<<(chars[lca]-'a'));
-
-                if(pathMask==0 || (pathMask & (pathMask-1))==0){
-                    result.add(true);
-                }
-                else{
-                    result.add(false);
-                }
+        // iterative DFS from node 0
+        int timer = 0;
+        int[] stack = new int[n];
+        int sp = 0;
+        stack[sp++] = 0;
+        up[0][0] = 0;
+        tin[0] = timer++;
+        while (sp > 0) {
+            int u = stack[sp - 1];
+            if (idx[u] < g[u].size()) {
+                int v = g[u].get(idx[u]++);
+                if (v == up[0][u] && u != 0) continue;
+                if (u == 0 && v == 0) continue;
+                up[0][v] = u;
+                depth[v] = depth[u] + 1;
+                tin[v] = timer++;
+                stack[sp++] = v;
+            } else {
+                tout[u] = timer - 1;
+                sp--;
             }
         }
-        return result;
-    }
+        for (int k = 1; k <= LOG; k++)
+            for (int i = 0; i < n; i++)
+                up[k][i] = up[k - 1][up[k - 1][i]];
 
-    private void calculatePrefixXor(int u,int p,int currentXor,int[] pref){
-        currentXor^=(1<<(chars[u]-'a'));
-        pref[u]=currentXor;
-        for(int v:adj.get(u)){
-            if(v!=p){
-                calculatePrefixXor(v,u,currentXor,pref);
+        int[] ch = new int[n];
+        for (int i = 0; i < n; i++) {
+            ch[i] = s.charAt(i) - 'a';
+            rangeXor(tin[i], tout[i], 1 << ch[i]);
+        }
+
+        List<Boolean> ans = new ArrayList<>();
+        for (String q : queries) {
+            String[] p = q.split(" ");
+            if (p[0].equals("update")) {
+                int x = Integer.parseInt(p[1]);
+                int c = p[2].charAt(0) - 'a';
+                int d = (1 << ch[x]) ^ (1 << c);
+                rangeXor(tin[x], tout[x], d);
+                ch[x] = c;
+            } else {
+                int u = Integer.parseInt(p[1]), v = Integer.parseInt(p[2]);
+                // LCA
+                int a = u, b = v;
+                if (depth[a] < depth[b]) { int t = a; a = b; b = t; }
+                int diff = depth[a] - depth[b];
+                for (int k = 0; k <= LOG; k++)
+                    if ((diff >> k & 1) == 1) a = up[k][a];
+                int l;
+                if (a == b) l = a;
+                else {
+                    for (int k = LOG; k >= 0; k--)
+                        if (up[k][a] != up[k][b]) { a = up[k][a]; b = up[k][b]; }
+                    l = up[0][a];
+                }
+                int mask = qry(tin[u]) ^ qry(tin[v]) ^ (1 << ch[l]);
+                ans.add(Integer.bitCount(mask) <= 1);
             }
         }
+        return ans;
     }
 }
